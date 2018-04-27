@@ -1,0 +1,777 @@
+---
+title: "Data Wrangling Project"
+author: "George Surilas"
+date: "April 17, 2018"
+output:
+  ioslides_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(tidytext)
+library(tokenizers)
+library(gutenbergr)
+library(rvest)
+library(ggrepel)
+library(reshape2)
+library(repmis)
+
+
+
+```
+
+```{r Wiki Bios Sentiment Analysis, echo = FALSE, cache = TRUE, message = FALSE}
+urls <- c("https://en.wikipedia.org/wiki/Fyodor_Dostoevsky",
+          "https://en.wikipedia.org/wiki/Leo_Tolstoy",
+          "https://en.wikipedia.org/wiki/Nikolai_Gogol",
+          "https://en.wikipedia.org/wiki/Ivan_Turgenev",
+          "https://en.wikipedia.org/wiki/Anton_Chekhov",
+          "https://en.wikipedia.org/wiki/Maxim_Gorky",
+          "https://en.wikipedia.org/wiki/Yevgeny_Zamyatin",
+          "https://en.wikipedia.org/wiki/Alexander_Pushkin",
+          "https://en.wikipedia.org/wiki/Aleksandr_Solzhenitsyn",
+          "https://en.wikipedia.org/wiki/Vladimir_Nabokov",
+          "https://en.wikipedia.org/wiki/Mikhail_Bulgakov",
+          "https://en.wikipedia.org/wiki/Ivan_Bunin",
+          "https://en.wikipedia.org/wiki/Ivan_Goncharov",
+          "https://en.wikipedia.org/wiki/Varlam_Shalamov",
+          "https://en.wikipedia.org/wiki/Boris_Pasternak",
+          "https://en.wikipedia.org/wiki/Mikhail_Lermontov",
+          "https://en.wikipedia.org/wiki/Mikhail_Sholokhov",
+          "https://en.wikipedia.org/wiki/Vasily_Grossman",
+          "https://en.wikipedia.org/wiki/Lyudmila_Ulitskaya",
+          "https://en.wikipedia.org/wiki/Marina_Tsvetaeva",
+          "https://en.wikipedia.org/wiki/Evgeny_Chirikov",
+          "https://en.wikipedia.org/wiki/Sergei_Yesenin",
+          "https://en.wikipedia.org/wiki/Anna_Akhmatova",
+          "https://en.wikipedia.org/wiki/Sophia_Parnok",
+          "https://en.wikipedia.org/wiki/Maria_Rybakova",
+          "https://en.wikipedia.org/wiki/Ernest_Hemingway",
+          "https://en.wikipedia.org/wiki/William_Faulkner",
+          "https://en.wikipedia.org/wiki/Toni_Morrison",
+          "https://en.wikipedia.org/wiki/Maya_Angelou",
+          "https://en.wikipedia.org/wiki/F._Scott_Fitzgerald",
+          "https://en.wikipedia.org/wiki/Mark_Twain",
+          "https://en.wikipedia.org/wiki/John_Steinbeck",
+          "https://en.wikipedia.org/wiki/Nathaniel_Hawthorne",
+          "https://en.wikipedia.org/wiki/Ralph_Ellison",
+          "https://en.wikipedia.org/wiki/Herman_Melville",
+          "https://en.wikipedia.org/wiki/Philip_Roth",
+          "https://en.wikipedia.org/wiki/Edith_Wharton",
+          "https://en.wikipedia.org/wiki/Harper_Lee",
+          "https://en.wikipedia.org/wiki/Joseph_Heller",
+          "https://en.wikipedia.org/wiki/Kurt_Vonnegut",
+          "https://en.wikipedia.org/wiki/Emily_Dickinson",
+          "https://en.wikipedia.org/wiki/J._D._Salinger",
+          "https://en.wikipedia.org/wiki/James_Baldwin",
+          "https://en.wikipedia.org/wiki/Sylvia_Plath",
+          "https://en.wikipedia.org/wiki/Thomas_Pynchon",
+          "https://en.wikipedia.org/wiki/Ray_Bradbury",
+          "https://en.wikipedia.org/wiki/Truman_Capote",
+          "https://en.wikipedia.org/wiki/Sinclair_Lewis",
+          "https://en.wikipedia.org/wiki/Tennessee_Williams",
+          "https://en.wikipedia.org/wiki/Sherwood_Anderson",
+          "https://en.wikipedia.org/wiki/Raymond_Chandler",
+          "https://en.wikipedia.org/wiki/Henry_David_Thoreau",
+          "https://en.wikipedia.org/wiki/Flannery_O%27Connor",
+          "https://en.wikipedia.org/wiki/Albert_Camus",
+          "https://en.wikipedia.org/wiki/Marcel_Proust",
+          "https://en.wikipedia.org/wiki/Gustave_Flaubert",
+          "https://en.wikipedia.org/wiki/Victor_Hugo",
+          "https://en.wikipedia.org/wiki/%C3%89mile_Zola",
+          "https://en.wikipedia.org/wiki/Honor%C3%A9_de_Balzac",
+          "https://en.wikipedia.org/wiki/Voltaire",
+          "https://en.wikipedia.org/wiki/Jean-Paul_Sartre",
+          "https://en.wikipedia.org/wiki/Moli%C3%A8re",
+          "https://en.wikipedia.org/wiki/Simone_de_Beauvoir",
+          "https://en.wikipedia.org/wiki/Alexandre_Dumas",
+          "https://en.wikipedia.org/wiki/Charles_Baudelaire",
+          "https://en.wikipedia.org/wiki/Jules_Verne",
+          "https://en.wikipedia.org/wiki/Guy_de_Maupassant",
+          "https://en.wikipedia.org/wiki/Arthur_Rimbaud",
+          "https://en.wikipedia.org/wiki/Fran%C3%A7ois_Rabelais",
+          "https://en.wikipedia.org/wiki/Denis_Diderot",
+          "https://en.wikipedia.org/wiki/Ren%C3%A9_Descartes",
+          "https://en.wikipedia.org/wiki/Georges_Perec",
+          "https://en.wikipedia.org/wiki/Marquis_de_Sade",
+          "https://en.wikipedia.org/wiki/Stendhal",
+          "https://en.wikipedia.org/wiki/Charles_Dickens",
+          "https://en.wikipedia.org/wiki/Jane_Austen",
+          "https://en.wikipedia.org/wiki/Charlotte_Bront%C3%AB",
+          "https://en.wikipedia.org/wiki/George_Eliot",
+          "https://en.wikipedia.org/wiki/J._R._R._Tolkien",
+          "https://en.wikipedia.org/wiki/J._K._Rowling",
+          "https://en.wikipedia.org/wiki/George_Orwell",
+          "https://en.wikipedia.org/wiki/Thomas_Hardy",
+          "https://en.wikipedia.org/wiki/William_Shakespeare",
+          "https://en.wikipedia.org/wiki/Virginia_Woolf",
+          "https://en.wikipedia.org/wiki/Joseph_Conrad",
+          "https://en.wikipedia.org/wiki/C._S._Lewis",
+          "https://en.wikipedia.org/wiki/Roald_Dahl",
+          "https://en.wikipedia.org/wiki/Lewis_Carroll",
+          "https://en.wikipedia.org/wiki/William_Wordsworth",
+          "https://en.wikipedia.org/wiki/Geoffrey_Chaucer",
+          "https://en.wikipedia.org/wiki/Mary_Shelley",
+          "https://en.wikipedia.org/wiki/Samuel_Taylor_Coleridge",
+          "https://en.wikipedia.org/wiki/Aldous_Huxley",
+          "https://en.wikipedia.org/wiki/Rudyard_Kipling",
+          "https://en.wikipedia.org/wiki/Francis_Bacon",
+          "https://en.wikipedia.org/wiki/Emily_Bront%C3%AB",
+          "https://en.wikipedia.org/wiki/D._H._Lawrence",
+          "https://en.wikipedia.org/wiki/Jonathan_Swift",
+          "https://en.wikipedia.org/wiki/T._S._Eliot",
+          "https://en.wikipedia.org/wiki/John_Milton",
+          "https://en.wikipedia.org/wiki/Samuel_Johnson",
+          "https://en.wikipedia.org/wiki/H._G._Wells",
+          "https://en.wikipedia.org/wiki/Alfred,_Lord_Tennyson",
+          "https://en.wikipedia.org/wiki/E._M._Forster",
+          "https://en.wikipedia.org/wiki/Wilfred_Owen",
+          "https://en.wikipedia.org/wiki/Evelyn_Waugh",
+          "https://en.wikipedia.org/wiki/Agatha_Christie",
+          "https://en.wikipedia.org/wiki/Homer",
+          "https://en.wikipedia.org/wiki/Euripides",
+          "https://en.wikipedia.org/wiki/Aristotle",
+          "https://en.wikipedia.org/wiki/Plato",
+          "https://en.wikipedia.org/wiki/Sophocles",
+          "https://en.wikipedia.org/wiki/Aristophanes",
+          "https://en.wikipedia.org/wiki/Herodotus",
+          "https://en.wikipedia.org/wiki/Aeschylus",
+          "https://en.wikipedia.org/wiki/Thucydides",
+          "https://en.wikipedia.org/wiki/Nikos_Kazantzakis",
+          "https://en.wikipedia.org/wiki/Sappho",
+          "https://en.wikipedia.org/wiki/Plutarch",
+          "https://en.wikipedia.org/wiki/Hesiod",
+          "https://en.wikipedia.org/wiki/Xenophon",
+          "https://en.wikipedia.org/wiki/Demosthenes",
+          "https://en.wikipedia.org/wiki/Aesop"
+          )
+
+
+countries <- c(rep("Russia", 25), rep("United States",28), rep("France", 21), rep("United Kingdom", 33), rep("Greece", 16))
+
+##Initialize tibble that bio_sentiments table will fill
+biographies <- as.tibble(data.frame(author=character(0), country = character(0), Mean_Bio_Score=numeric(0), stringsAsFactors = FALSE))
+
+##Function that produces a tibble of Sentiments of Author Biographies
+bio_sentiments <- function(urls, countries){
+
+  
+  if(length(urls) != length(countries)){
+    stop ("Both lists must be of equal length")
+  }
+  for(i in 1:length(urls)){
+    
+    #Convert webpage text from list of lists, to one large list of all text
+    url<- urls[i]
+    bio <- url %>% 
+      read_html() %>% 
+      html_nodes("p") %>% 
+      html_text() %>% 
+      unlist() 
+    
+    #Convert list of text into a tibble of words with sentiment score
+    bio <- tibble(text = bio) %>% 
+      mutate(paragraph = row_number()) %>% 
+      unnest_tokens(word,text) %>% 
+      anti_join(stop_words) %>% 
+      inner_join(get_sentiments("afinn")) 
+    
+    author <- str_split(url,"/")[[1]][5]
+    result <- mean(bio$score)
+    country <- countries[i]
+    
+    ##Add row of data to tibble
+    biographies <- add_row(biographies, author = author, country = country, Mean_Bio_Score = result)
+  }
+  
+  ##Return filled out tibble as result
+  biographies
+}
+
+##Create Biography Sentiments table
+biographies <- bio_sentiments(urls,countries)
+
+#Make authors.nrc table to store authors and the NRC emotions they use in writing
+authors.nrc <- as.tibble(data.frame(author=character(0), 
+                                    anger.prop=numeric(0), 
+                                    anticipation.prop=numeric(0),
+                                    disgust.prop=numeric(0),
+                                    fear.prop=numeric(0),
+                                    joy.prop=numeric(0),
+                                    sadness.prop=numeric(0),
+                                    surprise.prop=numeric(0),
+                                    trust.prop=numeric(0),
+                                    stringsAsFactors = FALSE))
+
+#Function to insert nrc scores for each author in author.nrc table
+nrc_sentiments <- function(author, book_ids){
+  
+  books <-gutenberg_download(gutenberg_id = book_ids) %>% 
+    unnest_tokens(word,text) %>% 
+    anti_join(stop_words) %>% 
+    inner_join(get_sentiments("nrc"))
+  
+  emotions.tbl <- books %>% 
+    group_by(sentiment) %>% 
+    summarise(count = length(sentiment))
+  
+  
+  sents <- c("anger", "anticipation", "disgust", "fear", "joy", "sadness", "surprise", "trust") 
+  
+  #Get total number of emotionally charged words used by author
+  total <- emotions.tbl %>% filter(sentiment %in% sents) %>% select(count) %>% sum
+  
+  #Find proportion of words by author affiliated with anger, fear, disgust etc.
+  anger <- emotions.tbl %>% filter(sentiment == "anger") %>% select(count) %>% as.numeric()
+  anger <- anger/total
+  
+  anticipation <- emotions.tbl %>% filter(sentiment == "anticipation") %>% select(count) %>% as.numeric()
+  anticipation <- anticipation/total
+  
+  disgust <- emotions.tbl %>% filter(sentiment == "disgust") %>% select(count) %>% as.numeric()
+  disgust <- disgust/total
+  
+  fear <- emotions.tbl %>% filter(sentiment == "fear") %>% select(count) %>% as.numeric()
+  fear <- fear/total
+  
+  joy <- emotions.tbl %>% filter(sentiment == "joy") %>% select(count) %>% as.numeric()
+  joy <- joy/total
+  
+  sadness <- emotions.tbl %>% filter(sentiment == "sadness") %>% select(count) %>% as.numeric()
+  sadness<- sadness/total
+  
+  surprise <- emotions.tbl %>% filter(sentiment == "surprise") %>% select(count) %>% as.numeric()
+  surprise <- surprise/total
+  
+  trust <- emotions.tbl %>% filter(sentiment == "trust") %>% select(count) %>% as.numeric()
+  trust <- trust/total
+  
+  #Insert proportions into authors.nrc table
+  
+  authors.nrc <- add_row(authors.nrc, 
+                         author = author, 
+                         anger.prop = anger, 
+                         anticipation.prop = anticipation,
+                         disgust.prop = disgust,
+                         fear.prop = fear,
+                         joy.prop = joy,
+                         sadness.prop = sadness,
+                         surprise.prop = surprise,
+                         trust.prop = trust)
+  
+}
+
+#Russian Authors
+authors.nrc <- nrc_sentiments("Leo_Tolstoy", book_ids = c(1399,2600))
+authors.nrc <- nrc_sentiments("Fyodor_Dostoevsky", book_ids = c(2197,2554,2638,28054,8117))
+authors.nrc <- nrc_sentiments("Nikolai_Gogol", book_ids = c(1081,36238))
+authors.nrc <- nrc_sentiments("Ivan_Turgenev", book_ids = c(30723,8597,8744))
+authors.nrc <- nrc_sentiments("Anton_Chekhov", book_ids = c(1753,1732,13414))
+authors.nrc <- nrc_sentiments("Maxim_Gorky", book_ids = c(681,2288,2709,3783,51094))
+authors.nrc <- nrc_sentiments("Alexander_Pushkin", book_ids = c(4344,5089,13511,23058))
+authors.nrc <- nrc_sentiments("Ivan_Bunin", book_ids = c(44998))
+authors.nrc <- nrc_sentiments("Mikhail_Lermontov", book_ids = c(913))
+authors.nrc <- nrc_sentiments("F._Scott_Fitzgerald", book_ids = c(805,6695,9830))
+
+#American Authors
+authors.nrc <- nrc_sentiments("Mark_Twain", book_ids = c(74,76,86,1837))
+authors.nrc <- nrc_sentiments("Nathaniel_Hawthorne", book_ids = c(33,77))
+authors.nrc <- nrc_sentiments("Herman_Melville", book_ids = c(15))
+authors.nrc <- nrc_sentiments("Edith_Wharton", book_ids = c(284,541))
+authors.nrc <- nrc_sentiments("Kurt_Vonnegut", book_ids = c(21279,30240))
+authors.nrc <- nrc_sentiments("Emily_Dickinson", book_ids = c(2678,2679,12242))
+authors.nrc <- nrc_sentiments("Ray_Bradbury", book_ids = c(41622,41624,41627,51171))
+authors.nrc <- nrc_sentiments("Sinclair_Lewis", book_ids = c(543,1156))
+authors.nrc <- nrc_sentiments("Sherwood_Anderson", book_ids = c(416,7048))
+authors.nrc <- nrc_sentiments("Henry_David_Thoreau", book_ids = c(205))
+
+#French Authors
+authors.nrc <- nrc_sentiments("Marcel_Proust", book_ids = c(7178))
+authors.nrc <- nrc_sentiments("Gustave_Flaubert", book_ids = c(25053,25014,27537,27575,34828,4609))
+authors.nrc <- nrc_sentiments("Victor_Hugo", book_ids = c(2610))
+authors.nrc <- nrc_sentiments("%C3%89mile_Zola ", book_ids = c(1069,5135,5744,6626,7011,9499,10330,10720,13851,13695))
+authors.nrc <- nrc_sentiments("Honor%C3%A9_de_Balzac", book_ids = c(1237,469,1189,1196,1215,1223,1230,
+                                                                 1242,1277,1294,1305,1307,1343,1344,1345,
+                                                                 1350,1352,1357,1369,1373,1374,1380,1389,1403,1405,
+                                                                 1410,1411,1425,1426,1427,1428,1432,1433,1437,1443,
+                                                                 1453,1454,1455,1456,1474,1475,1481,1482,1553,1554,
+                                                                 1555,1556,1559,1569,1639,1641,1649,1659,1680,1683,1704,1710,
+                                                                 1714,1715,1729,1737,1749,1810,1811,1813,1826,1841,1854,
+                                                                 1856,1871,1873,1884,1899,1912,1921,1940,1941,1942,1943,
+                                                                 1950,1954,1957,1967,5873,7416,7927,7929,7950,7958,8079,
+                                                                 12900,13159))
+authors.nrc <- nrc_sentiments("Voltaire", book_ids = c(18569,19942,18972))
+authors.nrc <- nrc_sentiments("Alexandre_Dumas", book_ids = c(965,1257,1258,1259,2759,1189))
+authors.nrc <- nrc_sentiments("Charles_Bauderlaire", book_ids = c(36098))
+authors.nrc <- nrc_sentiments("Jules_Verne", book_ids = c(83,103,164,3748))
+authors.nrc <- nrc_sentiments("Guy_de_Maupassant", book_ids = c(7114,7549,3090))
+authors.nrc <- nrc_sentiments("Denis_Diderot", book_ids = c(34544))
+authors.nrc <- nrc_sentiments("Ren%C3%A9_Descartes", book_ids = c(59,4391))
+authors.nrc <- nrc_sentiments("Stendhal", book_ids = c(44747))
+
+#British Authors
+authors.nrc <- nrc_sentiments("Charles_Dickens", book_ids = c(46,98,564,580,700,730,766,883,963,967,968,1023,1400))
+authors.nrc <- nrc_sentiments("Jane_Austen", book_ids = c(105,121,141,158,161,1342,946))
+authors.nrc <- nrc_sentiments("Charlotte_Bront%C3%AB", book_ids = c(1028,1260,9182,30486))
+authors.nrc <- nrc_sentiments("George_Eliot", book_ids = c(145,507,550,6688))
+authors.nrc <- nrc_sentiments("Thomas_Hardy", book_ids = c(110,153))
+authors.nrc <- nrc_sentiments("William_Shakespeare", book_ids = c(1041,1045,seq(1500,1544),2247,2250,seq(2253,2260),2262,2265,2266,2267))
+authors.nrc <- nrc_sentiments("Virginia_Woolf", book_ids = c(144,1245,5670,29220))
+authors.nrc <- nrc_sentiments("Joseph_Conrad", book_ids = c(219,220,1083,974,2021,5658))
+authors.nrc <- nrc_sentiments("Lewis_Carroll", book_ids = c(11,12,13))
+authors.nrc <- nrc_sentiments("William_Wordsworth", book_ids = c(8774,8824,8905,8912,10219,12145,12383,32459))
+authors.nrc <- nrc_sentiments("Geoffrey_Chaucer", book_ids = c(257,2383))
+authors.nrc <- nrc_sentiments("Mary_Shelley", book_ids = c(61))
+authors.nrc <- nrc_sentiments("Rudyard_Kipling", book_ids = c(236,21777,1937))
+authors.nrc <- nrc_sentiments("Franics_Bacon", book_ids = c(575,2434,5500))
+authors.nrc <- nrc_sentiments("Emily_Bront%C3%AB", book_ids = c(768))
+
+#Greek Authors
+authors.nrc <- nrc_sentiments("HomerB", book_ids = c(2199,3160))
+authors.nrc <- nrc_sentiments("Euripides", book_ids = c(15081,35170,35171,35173,35451,10523))
+authors.nrc <- nrc_sentiments("Aristotle", book_ids = c(1974,2412,6762,6763))
+authors.nrc <- nrc_sentiments("Plato", book_ids = c(150))
+authors.nrc <- nrc_sentiments("Sophocles", book_ids = c(31))
+authors.nrc <- nrc_sentiments("Aristophanes", book_ids = c(2562,2571,3012,3013,7700,7998))
+authors.nrc <- nrc_sentiments("Thucydides", book_ids = c(9074))
+authors.nrc <- nrc_sentiments("Sappho", book_ids = c(42166))
+authors.nrc <- nrc_sentiments("Hesiod", book_ids = c(348))
+authors.nrc <- nrc_sentiments("Demosthenes", book_ids = c(9060,9061))
+authors.nrc <- nrc_sentiments("Aesop", book_ids = c(21))
+
+authors <- as.tibble(data.frame(author=character(0), Mean_Book_Score=numeric(0), stringsAsFactors = FALSE))
+
+##Sentiments by Authors function
+
+book_sentiments <- function(author, book_ids){
+  
+  books <-gutenberg_download(gutenberg_id = book_ids) %>% 
+    unnest_tokens(word,text) %>% 
+    anti_join(stop_words) %>% 
+    inner_join(get_sentiments("afinn"))
+    
+  result <- mean(books$score)
+  authors <- add_row(authors, author = author, Mean_Book_Score = result)
+}
+
+#Russian Authors
+authors <- book_sentiments("Leo_Tolstoy", book_ids = c(1399,2600))
+authors <- book_sentiments("Fyodor_Dostoevsky", book_ids = c(2197,2554,2638,28054,8117))
+authors <- book_sentiments("Nikolai_Gogol", book_ids = c(1081,36238))
+authors <- book_sentiments("Ivan_Turgenev", book_ids = c(30723,8597,8744))
+authors <- book_sentiments("Anton_Chekhov", book_ids = c(1753,1732,13414))
+authors <- book_sentiments("Maxim_Gorky", book_ids = c(681,2288,2709,3783,51094))
+authors <- book_sentiments("Alexander_Pushkin", book_ids = c(4344,5089,13511,23058))
+authors <- book_sentiments("Ivan_Bunin", book_ids = c(44998))
+authors <- book_sentiments("Mikhail_Lermontov", book_ids = c(913))
+authors <- book_sentiments("F._Scott_Fitzgerald", book_ids = c(805,6695,9830))
+
+#American Authors
+authors <- book_sentiments("Mark_Twain", book_ids = c(74,76,86,1837))
+authors <- book_sentiments("Nathaniel_Hawthorne", book_ids = c(33,77))
+authors <- book_sentiments("Herman_Melville", book_ids = c(15))
+authors <- book_sentiments("Edith_Wharton", book_ids = c(284,541))
+authors <- book_sentiments("Kurt_Vonnegut", book_ids = c(21279,30240))
+authors <- book_sentiments("Emily_Dickinson", book_ids = c(2678,2679,12242))
+authors <- book_sentiments("Ray_Bradbury", book_ids = c(41622,41624,41627,51171))
+authors <- book_sentiments("Sinclair_Lewis", book_ids = c(543,1156))
+authors <- book_sentiments("Sherwood_Anderson", book_ids = c(416,7048))
+authors <- book_sentiments("Henry_David_Thoreau", book_ids = c(205))
+
+#French Authors
+authors <- book_sentiments("Marcel_Proust", book_ids = c(7178))
+authors <- book_sentiments("Gustave_Flaubert", book_ids = c(25053,25014,27537,27575,34828,4609))
+authors <- book_sentiments("Victor_Hugo", book_ids = c(2610))
+authors <- book_sentiments("%C3%89mile_Zola ", book_ids = c(1069,5135,5744,6626,7011,9499,10330,10720,13851,13695))
+authors <- book_sentiments("Honor%C3%A9_de_Balzac", book_ids = c(1237,469,1189,1196,1215,1223,1230,
+                                                                 1242,1277,1294,1305,1307,1343,1344,1345,
+                                                                 1350,1352,1357,1369,1373,1374,1380,1389,1403,1405,
+                                                                 1410,1411,1425,1426,1427,1428,1432,1433,1437,1443,
+                                                                 1453,1454,1455,1456,1474,1475,1481,1482,1553,1554,
+                                                                 1555,1556,1559,1569,1639,1641,1649,1659,1680,1683,1704,1710,
+                                                                 1714,1715,1729,1737,1749,1810,1811,1813,1826,1841,1854,
+                                                                 1856,1871,1873,1884,1899,1912,1921,1940,1941,1942,1943,
+                                                                 1950,1954,1957,1967,5873,7416,7927,7929,7950,7958,8079,
+                                                                 12900,13159))
+authors <- book_sentiments("Voltaire", book_ids = c(18569,19942,18972))
+authors <- book_sentiments("Alexandre_Dumas", book_ids = c(965,1257,1258,1259,2759,1189))
+authors <- book_sentiments("Charles_Bauderlaire", book_ids = c(36098))
+authors <- book_sentiments("Jules_Verne", book_ids = c(83,103,164,3748))
+authors <- book_sentiments("Guy_de_Maupassant", book_ids = c(7114,7549,3090))
+authors <- book_sentiments("Denis_Diderot", book_ids = c(34544))
+authors <- book_sentiments("Ren%C3%A9_Descartes", book_ids = c(59,4391))
+authors <- book_sentiments("Stendhal", book_ids = c(44747))
+
+#British Authors
+authors <- book_sentiments("Charles_Dickens", book_ids = c(46,98,564,580,700,730,766,883,963,967,968,1023,1400))
+authors <- book_sentiments("Jane_Austen", book_ids = c(105,121,141,158,161,1342,946))
+authors <- book_sentiments("Charlotte_Bront%C3%AB", book_ids = c(1028,1260,9182,30486))
+authors <- book_sentiments("George_Eliot", book_ids = c(145,507,550,6688))
+authors <- book_sentiments("Thomas_Hardy", book_ids = c(110,153))
+authors <- book_sentiments("William_Shakespeare", book_ids = c(1041,1045,seq(1500,1544),2247,2250,seq(2253,2260),2262,2265,2266,2267))
+authors <- book_sentiments("Virginia_Woolf", book_ids = c(144,1245,5670,29220))
+authors <- book_sentiments("Joseph_Conrad", book_ids = c(219,220,1083,974,2021,5658))
+authors <- book_sentiments("Lewis_Carroll", book_ids = c(11,12,13))
+authors <- book_sentiments("William_Wordsworth", book_ids = c(8774,8824,8905,8912,10219,12145,12383,32459))
+authors <- book_sentiments("Geoffrey_Chaucer", book_ids = c(257,2383))
+authors <- book_sentiments("Mary_Shelley", book_ids = c(61))
+authors <- book_sentiments("Rudyard_Kipling", book_ids = c(236,21777,1937))
+authors <- book_sentiments("Franics_Bacon", book_ids = c(575,2434,5500))
+authors <- book_sentiments("Emily_Bront%C3%AB", book_ids = c(768))
+
+#Greek Authors
+authors <- book_sentiments("HomerB", book_ids = c(2199,3160))
+authors <- book_sentiments("Euripides", book_ids = c(15081,35170,35171,35173,35451,10523))
+authors <- book_sentiments("Aristotle", book_ids = c(1974,2412,6762,6763))
+authors <- book_sentiments("Plato", book_ids = c(150))
+authors <- book_sentiments("Sophocles", book_ids = c(31))
+authors <- book_sentiments("Aristophanes", book_ids = c(2562,2571,3012,3013,7700,7998))
+authors <- book_sentiments("Thucydides", book_ids = c(9074))
+authors <- book_sentiments("Sappho", book_ids = c(42166))
+authors <- book_sentiments("Hesiod", book_ids = c(348))
+authors <- book_sentiments("Demosthenes", book_ids = c(9060,9061))
+authors <- book_sentiments("Aesop", book_ids = c(21))
+
+happy17 <- as.tibble(source_data("https://github.com/gsurilas/MSDS597---Project/blob/master/2017_happiness.csv?raw=True"))
+happy16 <- as.tibble(source_data("https://github.com/gsurilas/MSDS597---Project/blob/master/2016_happiness.csv?raw=True"))
+```
+## An Explanation
+
+* The idea behind this project was to see if the happiness ranking of a country as given by the 2017 Gallup poll was reflected in the happiness of the major literary works from that country
+
+* Did unhappier countries produce unhappier authors who wrote unhappier books?
+
+* Did countries differ in the types of words they used?
+  + i.e. Would a country higher in happiness rank tend to write books with more joy and trust words as opposed to fear and disgust words?
+
+## The Happiest Places
+
+```{r Happiness Plots Setup, echo = FALSE, message = FALSE}
+library(reshape2)
+
+#Join happy16 and happy17 to get Regions from 2016 data which is missing in 2017 data. And clean column names
+happy <- happy17 %>% 
+  left_join(select(happy16, Country, Region))
+
+happy <- happy %>% 
+  rename(GDP = Economy..GDP.per.Capita.,
+         Health = Health..Life.Expectancy.,
+         `Government Corruption` = Trust..Government.Corruption.
+         )
+```
+
+```{r Happy Places, echo = FALSE, results = 'asis'}
+knitr::kable(happy %>% 
+  head(n=5) %>% 
+  select(Happiness.Rank, Country, Region, Happiness.Score))
+``` 
+
+## The Unhappiest Places
+
+```{r Unhappy Places}
+knitr::kable(happy %>% 
+  tail(n=5) %>% 
+  select(Happiness.Rank, Country, Region, Happiness.Score))
+
+```
+
+## Top 10 Countries
+
+```{r Top 10 Countries, echo = FALSE}
+top10 <- c("Norway", "Denmark", "Iceland", "Switzerland", "Finland", "Netherlands", "Canada", "New Zealand", "Sweden", "Australia")
+
+#Melt variables by country so we can plot
+happy_by_country <- happy %>% 
+  select(Country, GDP:`Government Corruption`) %>% 
+  melt(id = c("Country"))
+```
+
+```{r Top 10 Countries Plot, echo = FALSE}
+happy_by_country %>% 
+  filter(Country %in% top10) %>% 
+  ggplot(mapping = aes(variable, value)) +
+  geom_line(aes(color = Country, group = Country), size = 1) +
+  xlab("Happiness Variables") + ylab("Score Contribution") + ggtitle("Happiness Variable Score Contribution for Top 10 Countries") +
+  scale_x_discrete(labels = function(variable) str_wrap(variable, width = 5))
+```
+
+## Bottom 10 Countries
+
+```{r Bottom 10 Countries, echo = FALSE}
+
+low10 <- c("Yemen", "South Sudan", "Liberia", "Guinea", "Togo", "Rwanda", "Syria", "Tanzania", "Burundi", "Central African Republic")
+
+#Plot low 10 countries
+happy_by_country %>% 
+  filter(Country %in% low10) %>% 
+  ggplot(mapping = aes(variable, value)) +
+  geom_line(aes(color = Country, group = Country), size = 1) +
+  xlab("Happiness Variables") + ylab("Score Contribution") + ggtitle("Happiness Variable Score Contribution for Low 10 Countries") +
+  scale_x_discrete(labels = function(variable) str_wrap(variable, width = 5))
+```
+
+## Happiness By Region
+
+```{r Happiness by Region, echo = FALSE, message = FALSE, warning = FALSE}
+happy %>% 
+  filter(is.na(Region) != TRUE) %>% 
+  ggplot(mapping = aes(x = reorder(Region, Happiness.Score, mean), Happiness.Score)) +
+  geom_boxplot(aes(fill = Region)) +
+  xlab("World Region") +ggtitle("Happiness Score by Region") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        axis.line = element_line(colour = "black"), axis.text.x = element_text(angle = 90, hjust = 1)) 
+```
+
+## Happiness Variables by World Region
+
+```{r Happiness Variables by World Region, echo = FALSE, message = FALSE}
+#Melt happiness variables into region so we can plot
+
+happy_by_region <- happy %>% 
+  select(Region, GDP:`Government Corruption`) %>% 
+  melt(id = c("Region"))
+
+#Happiness Variable contribution by Region
+happy_by_region %>% 
+  filter(is.na(Region) != TRUE) %>% 
+  ggplot(mapping = aes(variable, value)) +
+  geom_boxplot(aes(fill = Region)) +
+  scale_x_discrete(labels = function(variable) str_wrap(variable, width = 10)) +
+  xlab("Happiness Variables") + ylab("Score Contribution") + ggtitle("Happiness Variable Contribution Levels by World Region") +
+  theme_grey(base_size = 9) +
+  theme(legend.position = "none", axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  facet_wrap(~ Region)
+
+```
+
+##Countries Overview
+
+The next part of the report focuses on the happiness and literary analysis of our 5 selected countries. First, we examine their happiness rankings to get a general picture of their overall happiness.
+
+```{r 5 countries, echo = FALSE, message = FALSE}
+country.list <- c("Russia", "United States", "Greece", "France", "United Kingdom")
+
+happy %>% 
+  filter(Country %in% country.list) %>% 
+  select(Happiness.Rank, Country, Happiness.Score, GDP, Family, Health, Freedom, Generosity, `Government Corruption`)
+
+```
+
+##Happiness Variable Contributions
+
+```{r 5 Countries plot, echo = FALSE, message = FALSE}
+happy_by_country %>% 
+  filter(Country %in% country.list) %>% 
+  ggplot(mapping = aes(variable, value)) +
+  geom_line(aes(color = Country, group = Country)) +
+  xlab("Happiness Variable") + ylab("Score Contribution") + ggtitle("Happiness Variable Contributions") +
+  theme_grey(base_size = 10) +
+  scale_x_discrete(labels = function(variable) str_wrap(variable, width = 5))
+```
+
+##Method - part 1
+
+* For each of the five countries examined I scraped the Wikipedia pages of 20-30 of its most prominent authors. I then scored the pages using the AFINN lexicon for its positive vs negative sentiment. I reasoned authors with more negative biographies, probably led unhappier lives. Conversely, those with more positive biographies led happier lives. I assigned each author a "Mean Bio Score"
+
+* I then used the R-Gutenberg package to score the major literary works of these authors using both the AFINN and NRC lexicons and assigned each author a Mean Book Score for the overall positivity/negativity of their body of work.  
+
+* Finally, I joined the "Mean Bio Scores", "Mean Book Scores" and "NRC Scores" on author into one large table. The table required some light regex cleaning to deal with the accents in some of the authors' name.
+
+
+##Method - part 2
+
+* The NRC lexicon was used to find the proportion of words used by each author corresponding to emotions like joy and fear.
+
+* The AFINN lexicon was used since it applies a score to words ranging from -5 to 5. I found this lexicon more nuanced than the BING lexicon which simply categorizes words into 1 or -1 scores. For example, with BING, the phrase tortured and exiled would receive the same negative score as unhappy and sad childhood which I did not think was adequate.  
+
+```{r Authors snapshot, echo = FALSE, message = FALSE}
+authors_and_bios <- biographies %>% 
+  left_join(authors) %>% 
+  left_join(authors.nrc)
+
+#Clean up e with accents in Authors column of authors_and_bios
+authors_and_bios$author <- str_replace_all(authors_and_bios$author, "%.*%[A-Z|1-9][A-Z|1-9]", "e")
+#Clean up O in Flannery O Connor
+authors_and_bios$author <- str_replace_all(authors_and_bios$author, "O%[1-9]{2}", "O'")
+#Get rid of underscores in names
+authors_and_bios$author <- str_replace_all(authors_and_bios$author, "_", " ")
+
+```
+
+##Literary Analysis
+
+* Now we can look at some plots and see if there are any relationships between the happiness of an author, and the overall sentiment of their work. We will also examine whether an author's native country's happiness is related to their own happiness, as well as the overall sentiment of their work.
+
+##Mean Book Score vs Mean Bio Score
+
+```{r Book Sentiments vs Author Happiness, echo = FALSE, message = FALSE}
+authors_and_bios %>%
+  filter(is.na(Mean_Book_Score) == FALSE) %>% 
+  ggplot(mapping = aes(Mean_Bio_Score, Mean_Book_Score)) +
+  geom_point(aes(color = country), size=2) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_text(aes(label=author), size = 2, nudge_y = .025) +
+  theme_grey(base_size = 10) +
+  xlab("Mean Biography Score") + ylab("Mean Book Score")
+```
+
+##Authors Happiness by Country
+
+```{r Authors Happiness by Country, echo = FALSE, message = FALSE, warning = FALSE}
+authors_and_bios %>% 
+  mutate(country = reorder(country, Mean_Bio_Score)) %>% 
+  ggplot(mapping = aes(country,Mean_Bio_Score)) +
+  geom_boxplot(aes(fill = country)) +
+  xlab("Country") + ylab("Mean Biography Score") + ggtitle("Author's Happiness by Country") +
+  theme_grey(base_size = 10) +
+  theme(legend.position = "none") 
+```
+
+##Average Book Sentiment by Country
+
+```{r Average Book Sentiment by Country, echo = FALSE, message = FALSE, warning = FALSE}
+authors_and_bios %>% 
+  mutate(country = reorder(country, Mean_Book_Score)) %>%
+  ggplot(mapping = aes(country,Mean_Book_Score)) +
+  geom_boxplot(aes(fill = country)) +
+  xlab("Country") + ylab("Mean Book Score") + ggtitle("Average Book Sentiment by Country") +
+  theme_grey(base_size = 10) +
+  theme(legend.position = "none") 
+```
+
+##NRC Analysis
+
+* Now I examine how each country and the authors from those countries differed in their use of NRC words like "joy", "surprise", "anger" etc. I had hoped for a pattern to emerge, like American authors used more "pride" word on average than other countries. However, what emerged was the fact that the proportion of NRC emotion words used by each country was about the same.
+
+* To perform these analyses, I had to gather the NRC variables in my authors_and_bios table in order to be able to plot them all together.
+
+##NRC Words by Country
+
+```{r NRC Analysis, echo = FALSE, message = FALSE, warning = FALSE}
+#Create a new tibble with NRC emotions by country stacked on each other so boxplots can be made
+emotions_by_country <- authors_and_bios %>% 
+  select(country, anger.prop:trust.prop) %>% 
+  melt(id = "country")
+
+#Emotion names list to use in emotions_labeller function
+emotion_names <- list(
+  "anger.prop" = "Anger",
+  "anticipation.prop" = "Anticipation",
+  "disgust.prop" = "Disgust",
+  "fear.prop" = "Fear",
+  "joy.prop" = "Joy",
+  "sadness.prop" = "Sadness",
+  "surprise.prop" = "Surprise",
+  "trust.prop" = "Trust"
+)
+
+#Emotions labeller function to use in re-writing facet wrap labels so the titles look better than anger.prop
+emotions_labeller <- function(variable,value){
+  return (emotion_names[value])
+}
+
+#Boxplots of NRC emotions by country
+emotions_by_country %>% 
+  ggplot(mapping = aes(country, value)) +
+  geom_boxplot(aes(fill = country)) +
+  facet_wrap(~variable, labeller = emotions_labeller) +
+  xlab("Country") + ylab("Proportion") + ggtitle("Proportion of NRC Words used by Country") +
+  theme_grey(base_size = 8) +
+  scale_x_discrete(labels = function(country) str_wrap(country, width = 5))
+```
+
+##NRC Emotions by Russian Authors
+
+```{r Emotions by Russian Authors, echo = FALSE, message = FALSE, warning = FALSE}
+
+#Create a new tibble with NRC emotions by author stacked on each other so dotplots can be made
+emotions_by_author <- authors_and_bios %>% 
+  select(author, country, anger.prop:trust.prop) %>% 
+  melt(id = c("author", "country"))
+
+#Emotions by Russian Authors
+emotions_by_author %>% 
+  filter(country == "Russia") %>% 
+  ggplot(mapping = aes(author, value)) +
+  geom_point(aes(fill = country)) +
+  geom_label_repel(aes(label = author), segment.color = NA, size = 1.5) +
+  facet_wrap(~variable, labeller = emotions_labeller) +
+  theme_grey(base_size = 10) +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "none") +
+  xlab("Author") + ylab("Proportion") + ggtitle("NRC Words used by Russian Authors")
+```
+
+##NRC Emotions by British Authors
+
+```{r Emotions by British Authors, echo = FALSE, message = FALSE, warning = FALSE}
+
+#Emotions by British Authors
+emotions_by_author %>% 
+  filter(country == "United Kingdom") %>% 
+  ggplot(mapping = aes(author, value)) +
+  geom_point(aes(fill = country)) +
+  geom_label_repel(aes(label = author), segment.color = NA, size = 1.5) +
+  facet_wrap(~variable, labeller = emotions_labeller) +
+  theme_grey(base_size = 10) +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "none") +
+  xlab("Author") + ylab("Proportion") + ggtitle("NRC Words used by UK Authors") 
+
+```
+
+##NRC Emotions by French Authors
+
+```{r Emotions by French Authors, echo = FALSE, message = FALSE, warning = FALSE}
+#Emotions by French Authors
+emotions_by_author %>% 
+  filter(country == "France") %>% 
+  ggplot(mapping = aes(author, value)) +
+  geom_point(aes(fill = country)) +
+  geom_label_repel(aes(label = author), segment.color = NA, size = 1.5) +
+  facet_wrap(~variable, labeller = emotions_labeller) +
+  theme_grey(base_size = 10) +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "none") +
+  xlab("Author") + ylab("Proportion") + ggtitle("NRC Words used by French Authors") 
+```
+
+##NRC Emotions by Greek Authors
+
+```{r Emotions by Greek Authors, echo = FALSE, message = FALSE, warning = FALSE}
+#Emotions by Greek Authors
+emotions_by_author %>% 
+  filter(country == "Greece") %>% 
+  ggplot(mapping = aes(author, value)) +
+  geom_point(aes(fill = country)) +
+  geom_label_repel(aes(label = author), segment.color = NA, size = 1.5) +
+  facet_wrap(~variable, labeller = emotions_labeller) +
+  theme_grey(base_size = 10) +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "none") +
+  xlab("Author") + ylab("Proportion") + ggtitle("NRC Words used by Greek Authors")
+```
+
+##NRC Emotions by American Authors
+
+```{r Emotions by American Authors, echo = FALSE, message = FALSE, warning = FALSE}
+#Emotions by American Authors
+emotions_by_author %>% 
+  filter(country == "United States") %>% 
+  ggplot(mapping = aes(author, value)) +
+  geom_point(aes(fill = country)) +
+  geom_label_repel(aes(label = author), segment.color = NA, size = 1.5) +
+  facet_wrap(~variable, labeller = emotions_labeller) +
+  theme_grey(base_size = 10) +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "none") +
+  xlab("Author") + ylab("Proportion") + ggtitle("NRC Words used by American Authors")
+```
+
